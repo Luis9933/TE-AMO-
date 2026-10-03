@@ -1,0 +1,2016 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Proyecto T</title>
+
+    <style>
+/* ==========================================
+   🌌 CONFIGURACIÓN GENERAL
+   ========================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: black;
+
+    /* evita zoom/scroll/selección al mantener presionado en el celular */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+
+    font-family: Arial, sans-serif;
+}
+
+
+/* ==========================================
+   🌌 CANVAS DEL UNIVERSO
+   ========================================== */
+
+#space {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
+}
+
+
+/* ==========================================
+   🖼️ IMAGEN INICIAL
+   ========================================== */
+
+#welcomeBackground {
+    position: fixed;
+    inset: 0;
+    background-image: url("bienvenida.jpg");
+    background-size: cover;
+    background-position: center;
+    z-index: 10;
+    opacity: 1;
+    transition: opacity 1.5s ease;
+}
+
+
+/* ==========================================
+   ❤️ PREGUNTA
+   ========================================== */
+
+#question {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 20;
+    padding: 0 20px;
+    transition: opacity 1.5s ease;
+}
+
+#question h1 {
+    font-size: clamp(26px, 6vw, 40px);
+    margin-bottom: 35px;
+    text-align: center;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+
+/* ==========================================
+   🔘 BOTONES
+   ========================================== */
+
+.answers {
+    display: flex;
+    gap: 20px;
+}
+
+.answers button {
+    padding: 12px 30px;
+    font-size: 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+#noButton {
+    transition: left 0.2s ease, top 0.2s ease, transform 0.3s ease;
+}
+
+#yesButton {
+    transition: transform 0.3s ease;
+}
+
+
+/* ==========================================
+   💖 MENSAJE FINAL
+   ========================================== */
+
+#finalMessage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    text-align: center;
+    padding: 0 20px;
+    z-index: 30;
+    opacity: 0;
+    transition: opacity 2s ease;
+    pointer-events: none;
+}
+
+#finalMessage h1 {
+    font-size: clamp(28px, 7vw, 45px);
+    margin-bottom: 15px;
+}
+
+#finalMessage p {
+    font-size: clamp(16px, 4vw, 22px);
+}
+
+
+/* ==========================================
+   💌 MENSAJE FINAL (después de la explosión)
+   ========================================== */
+
+#endMessage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 2s ease;
+}
+
+#endMessage.show {
+    opacity: 1;
+}
+
+.messageBox {
+    width: 100%;
+    max-width: 480px;
+    padding: 35px 28px;
+    text-align: center;
+    color: white;
+
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 80, 120, 0.5);
+    border-radius: 22px;
+
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+
+    box-shadow:
+        0 0 30px rgba(255, 0, 80, 0.35),
+        inset 0 0 20px rgba(255, 0, 80, 0.08);
+
+    transform: translateY(25px) scale(0.95);
+    transition: transform 2s ease;
+}
+
+#endMessage.show .messageBox {
+    transform: translateY(0) scale(1);
+    animation: boxGlow 3s ease-in-out 2s infinite;
+}
+
+.messageHeart {
+    display: block;
+    width: max-content;      /* ocupa solo lo que mide: al latir ya no se sale del recuadro */
+    margin: 0 auto 12px;
+    font-size: 42px;
+    animation: heartBeat 1.4s ease-in-out infinite;
+}
+
+.messageBox h2 {
+    font-size: clamp(24px, 6vw, 32px);
+    margin-bottom: 14px;
+}
+
+.messageBox p {
+    font-size: clamp(16px, 4.2vw, 20px);
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+@keyframes boxGlow {
+    0%, 100% { box-shadow: 0 0 25px rgba(255, 0, 80, 0.30), inset 0 0 20px rgba(255, 0, 80, 0.08); }
+    50%      { box-shadow: 0 0 45px rgba(255, 0, 80, 0.55), inset 0 0 25px rgba(255, 0, 80, 0.14); }
+}
+
+@keyframes heartBeat {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.18); }
+}
+
+
+/* ==========================================
+   🐶 IMAGEN DEL MENSAJE ("Ahora empieza algo bonito")
+   (se desvanece junto con el texto porque está dentro de #finalMessage)
+   ========================================== */
+
+#finalMessage .finalImage {
+    display: block;
+    width: min(60vw, 260px);
+    max-height: 38vh;
+    object-fit: contain;
+    margin-top: 25px;
+    filter: drop-shadow(0 0 18px rgba(255, 80, 120, 0.35));
+}
+
+
+/* ==========================================
+   ⌨️ TEXTO QUE SE ESCRIBE SOLO + CONTADOR + REPETIR
+   ========================================== */
+
+#endMessage.show {
+    pointer-events: auto;
+}
+
+/* Si el recuadro es muy alto para el celular, se puede deslizar dentro */
+.messageBox {
+    max-height: 90vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+
+    /* barras de desplazamiento ocultas (se puede deslizar igual) */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.messageBox::-webkit-scrollbar {
+    display: none;
+}
+
+.messageBox h2,
+.messageBox p {
+    white-space: pre-line;
+}
+
+.t-hidden {
+    visibility: hidden;
+}
+
+.typing .t-shown::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    margin-right: -4px;      /* cancela el ancho del cursor para que el texto no se mueva */
+    background: rgba(255, 255, 255, 0.85);
+    vertical-align: text-bottom;
+    animation: caretBlink 0.8s steps(1) infinite;
+}
+
+@keyframes caretBlink {
+    50% { opacity: 0; }
+}
+
+/* Elementos que aparecen después de terminar de escribir */
+.revealLater {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 1.2s ease, transform 1.2s ease;
+    pointer-events: none;
+}
+
+.revealLater.visible {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+/* ⏳ Contador */
+#counter {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 80, 120, 0.3);
+}
+
+.messageBox .counterLabel {
+    font-size: clamp(13px, 3.5vw, 16px);
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 12px;
+}
+
+.counterNumbers {
+    display: flex;
+    justify-content: center;
+    gap: clamp(8px, 3vw, 16px);
+}
+
+.unit {
+    min-width: 54px;
+}
+
+.unit span {
+    display: block;
+    font-size: clamp(24px, 7vw, 34px);
+    font-weight: bold;
+    color: #ff5c85;
+    text-shadow: 0 0 12px rgba(255, 60, 110, 0.6);
+    font-variant-numeric: tabular-nums;
+}
+
+.unit small {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* 🔁 Botón volver a ver */
+#replayButton {
+    margin-top: 24px;
+    padding: 11px 26px;
+    font-size: 17px;
+    color: white;
+    background: rgba(255, 80, 120, 0.18);
+    border: 1px solid rgba(255, 80, 120, 0.6);
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+#replayButton:active {
+    background: rgba(255, 80, 120, 0.35);
+}
+
+
+/* ==========================================
+   🔊 BOTÓN DE SILENCIO
+   ========================================== */
+
+#muteButton {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 60;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s ease;
+}
+
+#muteButton.visible {
+    opacity: 0.8;
+    pointer-events: auto;
+}
+
+    </style>
+</head>
+
+<body>
+
+    <!-- 🖼️ IMAGEN INICIAL -->
+    <div id="welcomeBackground"></div>
+
+    <!-- 🌌 UNIVERSO -->
+    <canvas id="space"></canvas>
+
+    <!-- ❤️ PREGUNTA -->
+    <div id="question">
+
+        <h1>¿Me Amas ?</h1>
+
+        <div class="answers">
+
+            <button id="yesButton">
+                SÍ ❤️
+            </button>
+
+            <button id="noButton">
+                NO 😈
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- 💖 MENSAJE (después del SÍ) -->
+    <div id="finalMessage">
+
+        <h1>Sabía que dirías que sí ❤️</h1>
+
+        <p>Ahora empieza algo bonito...</p>
+
+        <img src="perrito.png" alt="" class="finalImage">
+
+    </div>
+
+    <!-- 💌 MENSAJE FINAL (después de la explosión) -->
+    <div id="endMessage">
+        <div class="messageBox">
+            <div class="messageHeart">❤️</div>
+            <h2 id="endTitle">❤️TE AMO TARSIS❤️</h2>
+            <p id="endText">Amor, hoy quiero darte las gracias por seguir conmigo, por cada momento que hemos compartido, por cada sonrisa, cada abrazo, cada palabra y por simplemente estar a mi lado. Puede que a veces no encuentre las palabras exactas para explicarte todo lo que siento, pero quiero que sepas que te amo más de lo que cualquier palabra podría explicar.
+
+Si pudiera elegir entre millones de personas, en cualquier lugar y en cualquier momento, volvería a elegirte a ti. Y si estuviera perdido entre millones de estrellas, no importaría cuánto tuviera que buscar… porque entre todas ellas, siempre te buscaría a ti. ⭐❤️
+
+Quiero seguir viviendo momentos contigo, seguir conociéndote, hacerte reír, cuidarte, apoyarte y estar contigo tanto en los días bonitos como en los difíciles. No quiero que seas solamente una parte bonita de mi vida; quiero que seas esa persona con la que pueda compartirla entera.
+
+Quiero pasar toda mi vida a tu lado. Quiero que algún día podamos mirar atrás y recordar todo lo que vivimos juntos, desde nuestros primeros meses hasta todos esos años que todavía nos faltan por escribir. 🥹❤️
+
+Gracias por existir, por haber llegado a mi vida y por dejarme quererte. No sé qué nos tenga preparado el futuro, pero sí sé algo: mientras pueda elegir, quiero seguir eligiéndote a ti.
+
+Te amo más que a nada en este mundo. ❤️.</p>
+
+            <div id="counter" class="revealLater">
+                <p class="counterLabel">Desde aquel día han pasado</p>
+                <div class="counterNumbers">
+                    <div class="unit"><span id="cDays">0</span><small>días</small></div>
+                    <div class="unit"><span id="cHours">00</span><small>horas</small></div>
+                    <div class="unit"><span id="cMins">00</span><small>min</small></div>
+                    <div class="unit"><span id="cSecs">00</span><small>seg</small></div>
+                </div>
+            </div>
+
+            <button id="replayButton" class="revealLater">Volver a ver ↺</button>
+        </div>
+    </div>
+
+    <!-- 🎵 MÚSICA -->
+    <audio id="music1" src="golden-hour.mp3" preload="auto" loop></audio>
+    <audio id="music2" src="until-i-found-you.mp3" preload="auto" loop></audio>
+    <audio id="music3" src="golden-hour.mp3" preload="auto"></audio>
+
+    <button id="muteButton" aria-label="Silenciar">🔊</button>
+
+    <!-- 🚀 JAVASCRIPT -->
+    <script>
+// 🔎 Diagnóstico: si algo falla, sale un aviso ROJO arriba de la pantalla
+function showDebug(msg) {
+
+    console.error(msg);
+
+    const box = document.createElement("div");
+
+    box.style.cssText =
+        "position:fixed;left:0;right:0;top:0;z-index:99999;" +
+        "background:#b00020;color:#fff;font:14px Arial;padding:10px;" +
+        "white-space:pre-wrap;";
+
+    box.textContent = msg;
+
+    document.body.appendChild(box);
+}
+
+window.addEventListener("error", (e) => {
+    showDebug("⚠️ Error de JavaScript: " + e.message + " (línea " + e.lineno + ")");
+});
+
+console.log("✅ script_sUqP.js cargado");
+
+
+// 🔎 Chequeo: avisa si a tu HTML le falta algún elemento que el script necesita
+(function checkHTML() {
+
+    const ids = [
+        "space", "welcomeBackground", "question", "yesButton", "noButton",
+        "finalMessage", "endMessage", "endTitle", "endText", "counter",
+        "cDays", "cHours", "cMins", "cSecs", "replayButton",
+        "music1", "music2", "music3", "muteButton"
+    ];
+
+    const missing = ids.filter((id) => !document.getElementById(id));
+
+    if (missing.length > 0) {
+        const msg =
+            "⚠️ Faltan estos elementos en tu HTML: " +
+            missing.map((id) => "#" + id).join(", ");
+
+        showDebug(msg);
+    }
+})();
+
+const canvas = document.getElementById("space");
+const ctx = canvas.getContext("2d");
+
+// ==========================================
+// ✏️ CONFIGURACIÓN (cambia esto a tu gusto)
+// ==========================================
+
+// 📅 Fecha del contador: new Date(AÑO, MES, DÍA, HORA, MINUTO)
+// OJO: el mes empieza en 0 (enero = 0, febrero = 1, ... diciembre = 11)
+const START_DATE = new Date(2025, 2, 4, 0, 0);
+
+// ⌨️ Velocidad de escritura (milisegundos por letra)
+const TYPE_SPEED_TITLE = 70;
+const TYPE_SPEED_TEXT = 45;
+
+// ⏱️ TIEMPOS (todo en milisegundos: 1000 = 1 segundo). Súbelos para ir más lento.
+const FADE_BG_MS = 3000;        // imagen de bienvenida y pregunta: tiempo en desvanecerse
+const MESSAGE_FADE_MS = 3000;   // "Sabía que dirías que sí": aparecer y desaparecer
+const MESSAGE_HOLD_MS = 3500;   // "Sabía que dirías que sí": tiempo que se queda visible
+const FORMATION_MS = 11000;     // tiempo que tarda en formarse el corazón
+const CHARGE_MS = 4000;         // mantener presionado: de 0 % a 100 %
+const DISCHARGE_MS = 2000;      // si sueltas: de 100 % a 0 %
+const OVERLOAD_MS = 3333;       // sobrecarga (compresión) antes de explotar
+
+// 😈 Textos del botón NO cada vez que se escapa
+const NO_TEXTS = [
+    "NO 🖕",
+    "¿De verdad? 🥺",
+    "Piénsalo... 🤔",
+    "Eso no se vale 😤",
+    "Mejor di que sí 😏",
+    "Ya párale 🙄",
+    "¡Qué terca! 😆",
+    "Última oportunidad 😈"
+];
+
+
+let stars = [];
+let shootingStars = [];
+let heartParticles = [];
+let floatingParticles = [];
+let energyWaves = [];
+let shockwaves = [];
+let sparks = [];
+
+let heartFormation = 0;
+let heartStarted = false;
+let lastHeartbeat = 0;
+
+// ==========================================
+// ⚡ SISTEMA DE CARGA / EXPLOSIÓN
+// ==========================================
+
+let isHoldingHeart = false;
+let explosionPower = 0;
+let universeExplosion = false;   // sobrecarga activada
+let compression = 0;
+let explosionActive = false;
+let explosionAge = 0;
+let explosionEnded = false;
+let flash = 0;
+let shakeFrames = 0;
+let lastRumble = 0;
+let lastFrameTime = performance.now();
+let frameDt = 16.67;   // milisegundos que pasaron desde el frame anterior
+
+const PARTICLE_COUNT = window.innerWidth < 700 ? 1500 : 2500;
+const EXPLOSION_FADE_FRAMES = 260;
+const SHAKE_TOTAL = 45;
+
+function clamp01(v) {
+    return Math.max(0, Math.min(1, v));
+}
+
+function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+
+// ==========================================
+// 📳 VIBRACIÓN (Android; iPhone no la soporta)
+// ==========================================
+
+function vibrate(pattern) {
+    if (navigator.vibrate) {
+        try {
+            navigator.vibrate(pattern);
+        } catch (e) { /* no pasa nada */ }
+    }
+}
+
+
+// ==========================================
+// 🎵 MÚSICA
+// ==========================================
+
+const music1 = document.getElementById("music1");   // Golden Hour (parte tranquila)
+const music2 = document.getElementById("music2");   // Until I Found You (mensaje final)
+const music3 = document.getElementById("music3");   // Golden Hour (copia que salta directo a la subida)
+const muteButton = document.getElementById("muteButton");
+
+// 🎯 SINCRONIZACIÓN CON LA EXPLOSIÓN
+// La sobrecarga dura siempre OVERLOAD_MS. Al empezar, la música salta al punto
+// de Golden Hour que queda justo DROP_TIME - 3.3 s antes de la subida,
+// así la subida cae exactamente cuando explota el corazón.
+const DROP_TIME = 32.0;     // segundo de golden-hour.mp3 donde cae la subida fuerte (versión recortada de 44 s)
+const SYNC_OFFSET = 0;      // ajuste fino en segundos:
+                            //   si la subida suena DESPUÉS de la explosión → pon 0.1, 0.2...
+                            //   si suena ANTES de la explosión → pon -0.1, -0.2...
+const DROP_START = Math.max(0, DROP_TIME - OVERLOAD_MS / 1000 + SYNC_OFFSET);
+const FADE_END = 0.85;      // % de carga (0 a 1) en el que la música queda en silencio total
+const LOOP_START = 12;      // si te tardas mucho, la canción regresa a este segundo...
+const LOOP_END = DROP_START - 1;   // ...al llegar aquí (un poco antes de la subida), para que no suene sola
+
+let audioCtx = null;
+let gain1 = null;
+let gain2 = null;
+let gain3 = null;
+let musicOn = false;
+let music2Started = false;
+let overloadStarted = false;
+let dropPrepared = false;
+let muted = false;
+let vol1 = 0;
+let vol2 = 0;
+let vol3 = 0;
+
+// Si la página se abre con doble clic (file://) Chrome bloquea Web Audio:
+// en ese caso usamos el volumen normal de los <audio> (funciona igual en la compu)
+let fileMode = false;
+
+function startMusic() {
+
+    musicOn = true;
+    music2Started = false;
+
+    fileMode = (location.protocol === "file:");
+
+    try {
+        if (!audioCtx && !fileMode) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AC();
+
+            gain1 = audioCtx.createGain();
+            gain2 = audioCtx.createGain();
+            gain3 = audioCtx.createGain();
+            gain1.gain.value = 0;
+            gain2.gain.value = 0;
+            gain3.gain.value = 0;
+
+            audioCtx.createMediaElementSource(music1).connect(gain1);
+            audioCtx.createMediaElementSource(music2).connect(gain2);
+            audioCtx.createMediaElementSource(music3).connect(gain3);
+
+            gain1.connect(audioCtx.destination);
+            gain2.connect(audioCtx.destination);
+            gain3.connect(audioCtx.destination);
+        }
+
+        if (audioCtx) {
+            audioCtx.resume();
+        }
+
+    } catch (e) {
+        console.error("Audio:", e);
+        fileMode = true;
+    }
+
+    music1.currentTime = 0;
+    music1.play().catch(() => {});
+
+    muteButton.classList.add("visible");
+}
+
+// Sube/baja el volumen según lo que pasa en la animación
+function updateMusic() {
+
+    if (!gain1 && !fileMode) {
+        return;
+    }
+
+    // Deja lista la copia en el punto exacto de la subida (sin que suene todavía)
+    if (!dropPrepared && heartFormation >= 1 && music3.readyState >= 1) {
+        music3.currentTime = DROP_START;
+        dropPrepared = true;
+    }
+
+    // ⚠️ Empieza la sobrecarga: entra la copia que ya está en su lugar
+    if (musicOn && universeExplosion && !overloadStarted) {
+        overloadStarted = true;
+
+        if (!dropPrepared) {
+            music3.currentTime = DROP_START;
+        }
+
+        music3.play().catch(() => {});
+    }
+
+    let t1 = 0;
+    let t2 = 0;
+    let t3 = 0;
+    let rate = 0.03;
+
+    if (musicOn) {
+
+        if (explosionEnded) {
+            // Mensaje final: Golden Hour se va y entra la otra canción
+            t2 = 0.6;
+            rate = 0.015;
+
+        } else if (overloadStarted) {
+            // Sobrecarga + explosión: arranca bajito (saliendo del silencio)
+            // y va subiendo hasta que cae la subida de la canción
+            t3 = 0.2 + clamp01(compression) * 0.8;
+            rate = 0.2;
+
+        } else if (heartFormation >= 1) {
+            // Mientras cargas el corazón el volumen va BAJANDO hasta quedar en
+            // silencio (al ~85 %). Ahí, sin que se note, la música salta a la
+            // parte de la subida y vuelve a crecer con la sobrecarga.
+            // Si sueltas, el volumen vuelve a subir.
+            const quiet = clamp01(explosionPower / FADE_END);
+            t1 = 0.4 * Math.pow(1 - quiet, 1.5);
+            rate = 0.12;
+
+        } else {
+            // Entrada suave
+            t1 = 0.35;
+            rate = 0.015;
+        }
+    }
+
+    // 🛟 Seguro: si te tardas en cargar, la canción no llega sola a la subida.
+    // Baja el volumen un instante y regresa a un punto tranquilo.
+    if (musicOn && !overloadStarted && !explosionEnded) {
+
+        const pos = music1.currentTime;
+
+        if (pos > LOOP_END - 0.5) {
+            t1 = 0;
+            rate = 0.2;
+        }
+
+        if (pos >= LOOP_END) {
+            music1.currentTime = LOOP_START;
+        }
+    }
+
+    vol1 += (t1 - vol1) * rate;
+    vol2 += (t2 - vol2) * rate;
+    vol3 += (t3 - vol3) * rate;
+
+    const m = muted ? 0 : 1;
+
+    if (gain1 && !fileMode) {
+        gain1.gain.value = vol1 * m;
+        gain2.gain.value = vol2 * m;
+        gain3.gain.value = vol3 * m;
+    } else {
+        music1.volume = clamp01(vol1 * m);
+        music2.volume = clamp01(vol2 * m);
+        music3.volume = clamp01(vol3 * m);
+    }
+
+    // Entra la segunda canción al aparecer el mensaje
+    if (explosionEnded && musicOn && !music2Started) {
+        music2Started = true;
+        music2.currentTime = 0;
+        music2.play().catch(() => {});
+    }
+
+    // Pausa lo que ya se desvaneció del todo
+    if (t1 === 0 && vol1 < 0.01 && !music1.paused) {
+        music1.pause();
+    }
+
+    if (t2 === 0 && vol2 < 0.01 && !music2.paused) {
+        music2.pause();
+    }
+
+    if (t3 === 0 && vol3 < 0.01 && !music3.paused) {
+        music3.pause();
+    }
+}
+
+// 🔇 Botón de silencio (sin activar el "mantener presionado")
+muteButton.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+muteButton.addEventListener("click", () => {
+    muted = !muted;
+    muteButton.textContent = muted ? "🔇" : "🔊";
+});
+
+// ⏸️ Si sales de la página o apagas la pantalla, se pausa
+document.addEventListener("visibilitychange", () => {
+
+    if (!musicOn) {
+        return;
+    }
+
+    if (document.hidden) {
+        music1.pause();
+        music2.pause();
+        music3.pause();
+    } else {
+
+        if (audioCtx) {
+            audioCtx.resume();
+        }
+
+        if (explosionEnded) {
+            music2.play().catch(() => {});
+        } else if (overloadStarted) {
+            music3.play().catch(() => {});
+        } else {
+            music1.play().catch(() => {});
+        }
+    }
+});
+
+
+// ==========================================
+// 📐 REDIMENSIONAR CANVAS
+// ==========================================
+
+function resizeCanvas() {
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    createStars();
+
+    // Solo se crean una vez; en resize solo se recalculan los destinos
+    if (heartParticles.length === 0) {
+        createHeartParticles();
+    } else {
+        updateHeartTargets();
+    }
+}
+
+
+// ==========================================
+// ⭐ ESTRELLAS
+// ==========================================
+
+function createStars() {
+
+    stars = [];
+
+    for (let i = 0; i < 300; i++) {
+
+        const size = Math.random() * 2;
+
+        stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: size,
+            opacity: Math.random(),
+            speed: Math.random() * 0.02,
+
+            // Paralaje: las más grandes (cercanas) caen más rápido
+            fall: 0.08 + size * 0.22,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+}
+
+
+// ==========================================
+// ❤️ PARTÍCULAS DEL CORAZÓN
+// ==========================================
+
+function createHeartParticles() {
+
+    heartParticles = [];
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+
+        // 30% en el contorno, 70% rellenando el interior (corazón sólido)
+        const k = Math.random() < 0.3 ? 1 : Math.sqrt(Math.random());
+
+        const green = Math.floor(40 + Math.random() * 180);
+        const blue = Math.floor(80 + Math.random() * 170);
+
+        heartParticles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            t: Math.random() * Math.PI * 2,
+            k: k,
+            targetX: 0,
+            targetY: 0,
+            size: Math.random() * 1.8 + 0.5,
+            opacity: Math.random() * 0.8 + 0.2,
+            delay: Math.random(),
+            formationProgress: 0,
+            phaseX: Math.random() * Math.PI * 2,
+            phaseY: Math.random() * Math.PI * 2,
+            movementSpeed: Math.random() * 0.002 + 0.001,
+            movementAmount: Math.random() * 2 + 0.5,
+            color: `rgb(255,${green},${blue})`,
+            explosionVX: 0,
+            explosionVY: 0
+        });
+    }
+
+    updateHeartTargets();
+}
+
+
+function updateHeartTargets() {
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    const scale = Math.min(canvas.width, canvas.height) * 0.018;
+
+    for (const p of heartParticles) {
+
+        const heartX = 16 * Math.pow(Math.sin(p.t), 3);
+
+        const heartY = -(
+            13 * Math.cos(p.t) -
+            5 * Math.cos(2 * p.t) -
+            2 * Math.cos(3 * p.t) -
+            Math.cos(4 * p.t)
+        );
+
+        p.targetX = centerX + heartX * scale * p.k;
+        p.targetY = centerY + heartY * scale * p.k;
+    }
+}
+
+
+// ==========================================
+// ☄️ ESTRELLA FUGAZ
+// ==========================================
+
+function createShootingStar() {
+
+    shootingStars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height * 0.5,
+        length: Math.random() * 100 + 50,
+        speed: Math.random() * 8 + 6,
+        opacity: 1
+    });
+}
+
+
+// ==========================================
+// ✨ PARTÍCULA FLOTANTE
+// ==========================================
+
+function createFloatingParticle() {
+
+    floatingParticles.push({
+        x: canvas.width / 2 + (Math.random() - 0.5) * canvas.width,
+        y: canvas.height / 2 + (Math.random() - 0.5) * canvas.height,
+        size: Math.random() * 2 + 0.5,
+        speed: Math.random() * 0.5 + 0.1,
+        opacity: Math.random(),
+        angle: Math.random() * Math.PI * 2
+    });
+}
+
+
+// ==========================================
+// ❤️ BRILLO DEL CORAZÓN
+// ==========================================
+
+function drawHeartEnergy() {
+
+    if (heartFormation < 1 || explosionActive) {
+        return;
+    }
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    const baseRadius = Math.min(canvas.width, canvas.height) * 0.32;
+
+    const compressionScale = 1 - compression * 0.70;
+
+    const energyPulse =
+        1 + Math.sin(Date.now() * 0.003) * (0.04 + explosionPower * 0.04);
+
+    const radius = baseRadius * compressionScale * energyPulse;
+
+    const gradient = ctx.createRadialGradient(
+        centerX, centerY, radius * 0.1,
+        centerX, centerY, radius
+    );
+
+    gradient.addColorStop(0, "rgba(255,0,80,0.15)");
+    gradient.addColorStop(0.7, "rgba(255,0,80,0.05)");
+    gradient.addColorStop(1, "rgba(255,0,80,0)");
+
+    ctx.fillStyle = gradient;
+
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+
+// ==========================================
+// 🌊 ONDAS DE ENERGÍA (con forma de corazón)
+// ==========================================
+
+function createEnergyWave() {
+    energyWaves.push({ progress: 0, opacity: 1 });
+}
+
+
+// Traza el contorno de un corazón (misma fórmula que las partículas)
+function drawHeartShape(cx, cy, scale) {
+
+    ctx.beginPath();
+
+    for (let i = 0; i <= 100; i++) {
+
+        const t = (i / 100) * Math.PI * 2;
+
+        const x = 16 * Math.pow(Math.sin(t), 3);
+
+        const y = -(
+            13 * Math.cos(t) -
+            5 * Math.cos(2 * t) -
+            2 * Math.cos(3 * t) -
+            Math.cos(4 * t)
+        );
+
+        if (i === 0) {
+            ctx.moveTo(cx + x * scale, cy + y * scale);
+        } else {
+            ctx.lineTo(cx + x * scale, cy + y * scale);
+        }
+    }
+
+    ctx.closePath();
+}
+
+
+function animateEnergyWaves() {
+
+    for (let i = energyWaves.length - 1; i >= 0; i--) {
+
+        const wave = energyWaves[i];
+
+        wave.progress += 0.012;
+        wave.opacity -= 0.012;
+
+        if (wave.progress >= 1 || wave.opacity <= 0) {
+            energyWaves.splice(i, 1);
+            continue;
+        }
+
+        // Nace en el centro (escala 0) y crece hasta rebasar el corazón
+        const baseScale = Math.min(canvas.width, canvas.height) * 0.018;
+        const compressionScale = 1 - compression * 0.65;
+        const waveScale = baseScale * compressionScale * wave.progress * 1.7;
+
+        ctx.save();
+
+        ctx.globalAlpha = wave.opacity * 0.8;
+        ctx.strokeStyle = "rgb(255,40,70)";
+        ctx.lineWidth = 2;
+
+        drawHeartShape(canvas.width / 2, canvas.height / 2, waveScale);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
+
+// ==========================================
+// ❤️ ANIMAR CORAZÓN
+// ==========================================
+
+function animateHeart() {
+
+    // ⚡ CARGA (sube al mantener presionado, baja si sueltas)
+    if (heartFormation >= 1 && !universeExplosion) {
+
+        if (isHoldingHeart) {
+            explosionPower = Math.min(1, explosionPower + frameDt / CHARGE_MS);
+        } else {
+            explosionPower = Math.max(0, explosionPower - frameDt / DISCHARGE_MS);
+        }
+
+        if (explosionPower >= 1) {
+            universeExplosion = true;   // ⚠️ SOBRECARGA (ya no se puede cancelar)
+            isHoldingHeart = false;
+        }
+    }
+
+    // 🫀 COMPRESIÓN → 💥 EXPLOSIÓN
+    if (universeExplosion && !explosionActive) {
+
+        compression = Math.min(1, compression + frameDt / OVERLOAD_MS);
+
+        // 📳 Vibración que se vuelve más intensa durante la sobrecarga
+        const now = performance.now();
+
+        if (now - lastRumble > 140) {
+            vibrate(50 + compression * 90);
+            lastRumble = now;
+        }
+
+        if (compression >= 1) {
+            startHeartExplosion();
+            explosionActive = true;
+            triggerExplosionEffects();
+        }
+    }
+
+    if (explosionActive) {
+        explosionAge++;
+    }
+
+    // ❤️ FORMACIÓN
+    if (heartStarted && heartFormation < 1) {
+        heartFormation = Math.min(1, heartFormation + frameDt / FORMATION_MS);
+    }
+
+    const time = Date.now();
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    let pulse = 1;
+
+    // 💓 LATIDO
+    if (heartFormation >= 1 && !explosionActive) {
+
+        const heartbeat = Math.sin(time * 0.0028);
+
+        pulse = 1 + heartbeat * (0.035 + explosionPower * 0.045);
+
+        if (heartbeat > 0.98 && lastHeartbeat <= 0.98) {
+
+            createEnergyWave();
+
+            // 📳 Un latido en el celular (más fuerte mientras más carga)
+            if (!universeExplosion) {
+                vibrate(18 + explosionPower * 50);
+            }
+        }
+
+        lastHeartbeat = heartbeat;
+    }
+
+    const compressionScale = 1 - compression * 0.65;
+
+    // 📳 Temblor durante la sobrecarga
+    const shake = (universeExplosion && !explosionActive)
+        ? 1 + compression * 4
+        : 0;
+
+    for (const p of heartParticles) {
+
+        // 💥 Explosión
+        if (explosionActive) {
+            p.x += p.explosionVX;
+            p.y += p.explosionVY;
+            p.explosionVX *= 0.985;
+            p.explosionVY *= 0.985;
+            continue;
+        }
+
+        const individualProgress =
+            clamp01((heartFormation - p.delay * 0.4) / 0.6);
+
+        const smooth =
+            individualProgress * individualProgress *
+            (3 - 2 * individualProgress);
+
+        p.formationProgress = smooth;
+
+        // 🌊 Movimiento orgánico
+        let desiredX =
+            p.targetX +
+            Math.sin(time * p.movementSpeed + p.phaseX) * p.movementAmount;
+
+        let desiredY =
+            p.targetY +
+            Math.cos(time * p.movementSpeed + p.phaseY) * p.movementAmount;
+
+        // 💓 Pulso + compresión
+        if (heartFormation >= 1) {
+            desiredX = centerX + (desiredX - centerX) * pulse * compressionScale;
+            desiredY = centerY + (desiredY - centerY) * pulse * compressionScale;
+        }
+
+        p.x += (desiredX - p.x) * 0.035 * smooth;
+        p.y += (desiredY - p.y) * 0.035 * smooth;
+
+        // 🌌 Deriva suave mientras aún están dispersas
+        const drift = 1 - smooth;
+
+        if (drift > 0) {
+            p.x += Math.sin(time * 0.0006 + p.phaseX) * 0.4 * drift;
+            p.y += Math.cos(time * 0.0006 + p.phaseY) * 0.4 * drift;
+        }
+
+        if (shake) {
+            p.x += (Math.random() - 0.5) * shake;
+            p.y += (Math.random() - 0.5) * shake;
+        }
+    }
+}
+
+
+// ==========================================
+// 💥 EXPLOSIÓN DEL CORAZÓN
+// ==========================================
+
+function startHeartExplosion() {
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    for (const p of heartParticles) {
+
+        const dx = p.x - centerX;
+        const dy = p.y - centerY;
+
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Algunas partículas salen mucho más rápido (más dramático)
+        let speed = Math.random() * 8 + 4;
+
+        if (Math.random() < 0.15) {
+            speed *= 1.8;
+        }
+
+        if (distance === 0) {
+            const angle = Math.random() * Math.PI * 2;
+            p.explosionVX = Math.cos(angle) * speed;
+            p.explosionVY = Math.sin(angle) * speed;
+            continue;
+        }
+
+        p.explosionVX = (dx / distance) * speed;
+        p.explosionVY = (dy / distance) * speed;
+    }
+}
+
+
+// ✨ Efectos extra de la explosión: destello, temblor, ondas y chispas
+function triggerExplosionEffects() {
+
+    flash = 0.9;
+    shakeFrames = SHAKE_TOTAL;
+
+    // 📳 Vibración fuerte y larga
+    vibrate([350, 60, 180, 60, 120]);
+
+    // 🌊 Dos ondas expansivas (la segunda sale un poquito después)
+    const speed = Math.max(canvas.width, canvas.height) / 80;
+
+    shockwaves.push({ r: 0, speed: speed, alpha: 1 });
+    shockwaves.push({ r: -speed * 8, speed: speed * 0.85, alpha: 1 });
+
+    // ✨ Chispas brillantes
+    const colors = ["255,255,255", "255,210,140", "255,120,170"];
+    const total = window.innerWidth < 700 ? 150 : 300;
+
+    for (let i = 0; i < total; i++) {
+
+        const angle = Math.random() * Math.PI * 2;
+        const v = Math.random() * 14 + 6;
+
+        sparks.push({
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            vx: Math.cos(angle) * v,
+            vy: Math.sin(angle) * v,
+            life: 1,
+            decay: 0.008 + Math.random() * 0.014,
+            size: Math.random() * 2 + 1,
+            color: colors[Math.floor(Math.random() * colors.length)]
+        });
+    }
+}
+
+
+function drawShockwaves() {
+
+    if (shockwaves.length === 0) {
+        return;
+    }
+
+    ctx.save();
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.shadowColor = "rgba(255,60,110,1)";
+    ctx.shadowBlur = 25;
+    ctx.strokeStyle = "rgb(255,90,130)";
+
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+
+        const w = shockwaves[i];
+
+        w.r += w.speed;
+
+        if (w.r <= 0) {
+            continue;
+        }
+
+        w.alpha -= 0.0125;
+
+        if (w.alpha <= 0) {
+            shockwaves.splice(i, 1);
+            continue;
+        }
+
+        ctx.globalAlpha = w.alpha;
+        ctx.lineWidth = 2 + 8 * w.alpha;
+
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, w.r, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+
+function drawSparks() {
+
+    if (sparks.length === 0) {
+        return;
+    }
+
+    ctx.save();
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+
+    for (let i = sparks.length - 1; i >= 0; i--) {
+
+        const s = sparks[i];
+
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vx *= 0.97;
+        s.vy *= 0.97;
+        s.life -= s.decay;
+
+        if (s.life <= 0) {
+            sparks.splice(i, 1);
+            continue;
+        }
+
+        ctx.strokeStyle = `rgba(${s.color},${s.life})`;
+        ctx.lineWidth = s.size;
+
+        ctx.beginPath();
+        ctx.moveTo(s.x - s.vx * 2, s.y - s.vy * 2);
+        ctx.lineTo(s.x, s.y);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+
+// ==========================================
+// 💌 MENSAJE FINAL: escritura automática
+// ==========================================
+
+const endMessage = document.getElementById("endMessage");
+const messageBox = document.querySelector(".messageBox");
+const endTitle = document.getElementById("endTitle");
+const endText = document.getElementById("endText");
+const counterBox = document.getElementById("counter");
+const replayButton = document.getElementById("replayButton");
+
+// Prepara el texto: lo deja invisible pero ocupando su espacio
+// (así el recuadro no "salta" mientras se escribe)
+function prepareTyping(el) {
+
+    const full = el.innerText.trim();
+
+    el.innerHTML =
+        '<span class="t-shown"></span><span class="t-hidden"></span>';
+
+    el.querySelector(".t-hidden").textContent = full;
+
+    return full;
+}
+
+// Mantiene a la vista la parte que se está escribiendo (el recuadro se desliza solo)
+function followTyping(el) {
+
+    const r = el.getBoundingClientRect();
+    const b = messageBox.getBoundingClientRect();
+    const margin = 30;
+
+    if (r.bottom > b.bottom - margin) {
+        messageBox.scrollTop += r.bottom - (b.bottom - margin);
+    }
+}
+
+function scrollBoxToEnd() {
+    messageBox.scrollTo({ top: messageBox.scrollHeight, behavior: "smooth" });
+}
+
+function typeInto(el, full, speed) {
+
+    return new Promise((resolve) => {
+
+        const shown = el.querySelector(".t-shown");
+        const hidden = el.querySelector(".t-hidden");
+
+        el.classList.add("typing");
+
+        let i = 0;
+
+        function step() {
+
+            i++;
+
+            shown.textContent = full.slice(0, i);
+            hidden.textContent = full.slice(i);
+
+            followTyping(shown);
+
+            if (i >= full.length) {
+                el.classList.remove("typing");
+                resolve();
+                return;
+            }
+
+            // Pausita en los signos de puntuación
+            const ch = full[i - 1];
+            const extra = /[.,;:!?…]/.test(ch) ? 250 : 0;
+
+            setTimeout(step, speed + extra);
+        }
+
+        step();
+    });
+}
+
+const endTitleFull = prepareTyping(endTitle);
+const endTextFull = prepareTyping(endText);
+
+
+// ==========================================
+// ⏳ CONTADOR
+// ==========================================
+
+let counterStarted = false;
+
+function pad2(n) {
+    return String(n).padStart(2, "0");
+}
+
+function updateCounter() {
+
+    const diff = Math.abs(Date.now() - START_DATE.getTime());
+    const total = Math.floor(diff / 1000);
+
+    document.getElementById("cDays").textContent = Math.floor(total / 86400);
+    document.getElementById("cHours").textContent = pad2(Math.floor((total % 86400) / 3600));
+    document.getElementById("cMins").textContent = pad2(Math.floor((total % 3600) / 60));
+    document.getElementById("cSecs").textContent = pad2(total % 60);
+}
+
+function startCounter() {
+
+    if (counterStarted) {
+        return;
+    }
+
+    counterStarted = true;
+
+    updateCounter();
+    setInterval(updateCounter, 1000);
+}
+
+
+// 👉 Se ejecuta una sola vez cuando termina la explosión
+async function onExplosionEnd() {
+
+    endMessage.classList.add("show");
+
+    await wait(1800);
+    await typeInto(endTitle, endTitleFull, TYPE_SPEED_TITLE);
+
+    await wait(300);
+    await typeInto(endText, endTextFull, TYPE_SPEED_TEXT);
+
+    await wait(500);
+    startCounter();
+    counterBox.classList.add("visible");
+    scrollBoxToEnd();
+
+    await wait(1400);
+    replayButton.classList.add("visible");
+    scrollBoxToEnd();
+}
+
+
+// 🔁 Volver a ver todo desde el principio (sin recargar la página)
+function resetTyping(el, full) {
+    el.classList.remove("typing");
+    el.querySelector(".t-shown").textContent = "";
+    el.querySelector(".t-hidden").textContent = full;
+}
+
+function resetExperience() {
+
+    // ❤️ Estado de la animación
+    heartFormation = 0;
+    heartStarted = false;
+    lastHeartbeat = 0;
+    isHoldingHeart = false;
+    explosionPower = 0;
+    universeExplosion = false;
+    compression = 0;
+    explosionActive = false;
+    explosionAge = 0;
+    explosionEnded = false;
+    flash = 0;
+    shakeFrames = 0;
+    lastRumble = 0;
+
+    // 🎵 La música se desvanece sola y vuelve a empezar al presionar SÍ
+    musicOn = false;
+    music2Started = false;
+    overloadStarted = false;
+    dropPrepared = false;
+
+    energyWaves = [];
+    shockwaves = [];
+    sparks = [];
+    floatingParticles = [];
+
+    createHeartParticles();
+
+    // 💌 Mensaje final
+    endMessage.classList.remove("show");
+    counterBox.classList.remove("visible");
+    replayButton.classList.remove("visible");
+    resetTyping(endTitle, endTitleFull);
+    resetTyping(endText, endTextFull);
+    messageBox.scrollTop = 0;
+
+    // 😈 Botones
+    noAttempts = 0;
+    noButton.textContent = NO_TEXTS[0];
+    noButton.style.transform = "";
+    noButton.style.position = "";
+    noButton.style.left = "";
+    noButton.style.top = "";
+    yesButton.style.transform = "";
+
+    // 🖼️ Pantalla de bienvenida
+    for (const el of [welcomeBackground, question]) {
+        el.style.display = "";
+        el.style.opacity = "0";
+        el.style.pointerEvents = "";
+        void el.offsetWidth;   // fuerza el reflujo para que anime el fade
+        el.style.opacity = "1";
+    }
+
+    finalMessage.style.display = "";
+    finalMessage.style.opacity = "0";
+
+    answered = false;
+}
+
+replayButton.addEventListener("click", resetExperience);
+
+
+// ==========================================
+// ❤️ DIBUJAR PARTÍCULAS
+// ==========================================
+
+function drawHeartParticles() {
+
+    const fade = explosionActive
+        ? Math.max(0, 1 - explosionAge / EXPLOSION_FADE_FRAMES)
+        : 1;
+
+    if (fade <= 0) {
+        return;
+    }
+
+    ctx.save();
+
+    ctx.shadowColor = "rgba(255,50,100,0.8)";
+    ctx.shadowBlur = 4 + explosionPower * 8;
+
+    for (const p of heartParticles) {
+
+        // Invisibles al inicio; se hacen visibles al ir formando el corazón
+        const alpha = p.opacity * p.formationProgress * fade;
+
+        if (alpha <= 0.01) {
+            continue;
+        }
+
+        ctx.globalAlpha = alpha;
+
+        ctx.fillStyle = p.color;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.restore();
+}
+
+
+// ==========================================
+// ✨ PARTÍCULAS FLOTANTES
+// ==========================================
+
+function animateFloatingParticles() {
+
+    for (let i = floatingParticles.length - 1; i >= 0; i--) {
+
+        const p = floatingParticles[i];
+
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+
+        p.opacity -= 0.001;
+
+        if (p.opacity <= 0) {
+            floatingParticles.splice(i, 1);
+            continue;
+        }
+
+        ctx.save();
+
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = "white";
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+
+// ==========================================
+// 🌌 ANIMACIÓN GENERAL
+// ==========================================
+
+function animate() {
+
+    // ⏱️ Tiempo real entre frames (así la sobrecarga dura siempre lo mismo)
+    const nowT = performance.now();
+    frameDt = Math.min(100, nowT - lastFrameTime);
+    lastFrameTime = nowT;
+
+    // Durante la explosión el fondo se borra a medias → estelas
+    const trails =
+        explosionActive && explosionAge < EXPLOSION_FADE_FRAMES + 40;
+
+    ctx.fillStyle = trails ? "rgba(0,0,0,0.22)" : "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+
+    // 📳 Temblor de pantalla al explotar
+    if (shakeFrames > 0) {
+
+        const magnitude = (shakeFrames / SHAKE_TOTAL) * 12;
+
+        ctx.translate(
+            (Math.random() - 0.5) * magnitude * 2,
+            (Math.random() - 0.5) * magnitude * 2
+        );
+
+        shakeFrames--;
+    }
+
+    // ⭐ ESTRELLAS
+    for (const star of stars) {
+
+        // 🌠 Caída suave con leve vaivén lateral
+        star.y += star.fall;
+        star.x += Math.sin(Date.now() * 0.0003 + star.phase) * 0.05;
+
+        if (star.y > canvas.height + 2) {
+            star.y = -2;
+            star.x = Math.random() * canvas.width;
+        }
+
+        star.opacity += star.speed;
+
+        if (star.opacity >= 1 || star.opacity <= 0) {
+            star.speed *= -1;
+            star.opacity = clamp01(star.opacity);
+        }
+
+        ctx.fillStyle = `rgba(255,255,255,${star.opacity})`;
+
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ☄️ ESTRELLAS FUGACES
+    for (let i = shootingStars.length - 1; i >= 0; i--) {
+
+        const star = shootingStars[i];
+
+        star.x += star.speed;
+        star.y += star.speed * 0.5;
+        star.opacity -= 0.01;
+
+        ctx.strokeStyle = `rgba(255,255,255,${Math.max(0, star.opacity)})`;
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(star.x, star.y);
+        ctx.lineTo(star.x - star.length, star.y - star.length * 0.5);
+        ctx.stroke();
+
+        if (star.opacity <= 0 || star.x > canvas.width + 200) {
+            shootingStars.splice(i, 1);
+        }
+    }
+
+    // ❤️ CORAZÓN
+    animateHeart();
+    drawHeartEnergy();
+    drawHeartParticles();
+    animateEnergyWaves();
+    animateFloatingParticles();
+
+    // 💥 EFECTOS DE LA EXPLOSIÓN
+    drawShockwaves();
+    drawSparks();
+
+    ctx.restore();
+
+    // ⚡ INDICADOR DE CARGA
+    if (heartFormation >= 1 && !explosionActive) {
+
+        ctx.save();
+
+        ctx.textAlign = "center";
+        ctx.font = "20px Arial";
+
+        if (universeExplosion) {
+
+            ctx.fillStyle = "rgba(255,80,100,0.9)";
+            ctx.fillText("⚠ SOBRECARGA ⚠", canvas.width / 2, 50);
+
+        } else {
+
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.fillText(
+                "❤️TE QUIERO❤️: " + Math.floor(explosionPower * 100) + "%",
+                canvas.width / 2,
+                50
+            );
+
+            if (explosionPower === 0) {
+                ctx.font = "14px Arial";
+                ctx.fillStyle = "rgba(255,255,255,0.5)";
+                ctx.fillText(
+                    "Mantén presionado el corazón",
+                    canvas.width / 2,
+                    canvas.height - 40
+                );
+            }
+        }
+
+        ctx.restore();
+    }
+
+    // 💥 DESTELLO
+    if (flash > 0) {
+        ctx.fillStyle = `rgba(255,255,255,${flash})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        flash = Math.max(0, flash - 0.02);
+    }
+
+    // 🏁 FIN DE LA EXPLOSIÓN
+    if (explosionActive && !explosionEnded && explosionAge >= EXPLOSION_FADE_FRAMES) {
+        explosionEnded = true;
+        onExplosionEnd();
+    }
+
+    // 🎵 Volumen de la música según lo que pasa en pantalla
+    updateMusic();
+
+    requestAnimationFrame(animate);
+}
+
+
+// ==========================================
+// ⏱️ INTERVALOS
+// ==========================================
+
+setInterval(() => {
+    if (heartFormation >= 1 && !explosionActive) {
+        createFloatingParticle();
+    }
+}, 250);
+
+setInterval(() => {
+    createShootingStar();
+}, 2500);
+
+
+// ==========================================
+// 🖥️ REDIMENSIONAR
+// ==========================================
+
+window.addEventListener("resize", resizeCanvas);
+
+
+// ==========================================
+// 🖱️👆 MANTENER PRESIONADO (mouse y touch)
+// ==========================================
+
+function startHold() {
+    if (heartFormation >= 1 && !universeExplosion) {
+        isHoldingHeart = true;
+    }
+}
+
+function endHold() {
+    isHoldingHeart = false;
+}
+
+window.addEventListener("pointerdown", startHold);
+window.addEventListener("pointerup", endHold);
+window.addEventListener("pointercancel", endHold);
+window.addEventListener("blur", endHold);
+window.addEventListener("contextmenu", (e) => e.preventDefault());
+
+
+// ==========================================
+// 🚫 BOTÓN NO (travieso: huye, cambia de texto y se encoge)
+// ==========================================
+
+const noButton = document.getElementById("noButton");
+const yesButton = document.getElementById("yesButton");
+const welcomeBackground = document.getElementById("welcomeBackground");
+const question = document.getElementById("question");
+const finalMessage = document.getElementById("finalMessage");
+
+welcomeBackground.style.transition = `opacity ${FADE_BG_MS}ms ease`;
+question.style.transition = `opacity ${FADE_BG_MS}ms ease`;
+finalMessage.style.transition = `opacity ${MESSAGE_FADE_MS}ms ease`;
+
+let noAttempts = 0;
+
+function placeNoButton() {
+
+    const margin = 10;
+
+    const w = noButton.offsetWidth;
+    const h = noButton.offsetHeight;
+
+    const maxX = Math.max(margin, window.innerWidth - w - margin);
+    const maxY = Math.max(margin, window.innerHeight - h - margin);
+
+    const yr = yesButton.getBoundingClientRect();
+
+    let x = margin;
+    let y = margin;
+
+    // Intenta no caer encima del botón SÍ
+    for (let i = 0; i < 15; i++) {
+
+        x = margin + Math.random() * (maxX - margin);
+        y = margin + Math.random() * (maxY - margin);
+
+        const overlaps =
+            x < yr.right + 20 &&
+            x + w > yr.left - 20 &&
+            y < yr.bottom + 20 &&
+            y + h > yr.top - 20;
+
+        if (!overlaps) {
+            break;
+        }
+    }
+
+    noButton.style.position = "fixed";
+    noButton.style.left = x + "px";
+    noButton.style.top = y + "px";
+}
+
+function runAway() {
+
+    noAttempts++;
+
+    // Cambia el texto
+    noButton.textContent = NO_TEXTS[noAttempts % NO_TEXTS.length];
+
+    // El NO se encoge y el SÍ crece
+    const noScale = Math.max(0.45, 1 - noAttempts * 0.07);
+    const yesScale = Math.min(2.4, 1 + noAttempts * 0.1);
+
+    noButton.style.transform = `scale(${noScale})`;
+    yesButton.style.transform = `scale(${yesScale})`;
+
+    placeNoButton();
+
+    vibrate(25);
+}
+
+noButton.addEventListener("mouseover", runAway);
+
+noButton.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    runAway();
+}, { passive: false });
+
+noButton.addEventListener("click", (e) => {
+    e.preventDefault();
+    runAway();
+});
+
+
+// ==========================================
+// ❤️ BOTÓN SÍ
+// ==========================================
+
+let answered = false;
+
+yesButton.addEventListener("click", () => {
+
+    if (answered) {
+        return;
+    }
+
+    answered = true;
+
+    startMusic();
+    vibrate(40);
+
+    // 🖼️ Desaparece imagen y pregunta
+    // (pointer-events none: si no, la imagen invisible sigue tapando el canvas)
+    welcomeBackground.style.opacity = "0";
+    welcomeBackground.style.pointerEvents = "none";
+
+    question.style.opacity = "0";
+    question.style.pointerEvents = "none";
+
+    setTimeout(() => {
+        welcomeBackground.style.display = "none";
+        question.style.display = "none";
+    }, FADE_BG_MS + 100);
+
+    // 💖 Mensaje → se desvanece → empieza el corazón
+    setTimeout(() => {
+
+        finalMessage.style.opacity = "1";
+
+        setTimeout(() => {
+
+            finalMessage.style.opacity = "0";
+
+            setTimeout(() => {
+
+                finalMessage.style.display = "none";
+
+                // ❤️ COMENZAR CORAZÓN
+                heartStarted = true;
+
+            }, MESSAGE_FADE_MS);
+
+        }, MESSAGE_FADE_MS + MESSAGE_HOLD_MS);
+
+    }, FADE_BG_MS);
+});
+
+
+// ==========================================
+// 🚀 INICIAR
+// ==========================================
+
+resizeCanvas();
+animate();
+
+    </script>
+
+</body>
+
+</html>
