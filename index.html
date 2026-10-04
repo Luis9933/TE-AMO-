@@ -240,7 +240,7 @@ body {
     max-height: 38vh;
     object-fit: contain;
     margin-top: 25px;
-    filter: drop-shadow(0 0 18px rgba(255, 80, 120, 0.35));
+    filter: drop-shadow(0 0 18px rgba(132, 232, 250, 0.35));
 }
 
 
@@ -405,7 +405,7 @@ body {
     <!-- ❤️ PREGUNTA -->
     <div id="question">
 
-        <h1>¿Me Amas ?</h1>
+        <h1>¿💖Quieres seguir siendo la niña de mi corazon💖🥺 ?</h1>
 
         <div class="answers">
 
@@ -424,9 +424,9 @@ body {
     <!-- 💖 MENSAJE (después del SÍ) -->
     <div id="finalMessage">
 
-        <h1>Sabía que dirías que sí ❤️</h1>
+        <h1>Sabía que dirías que sí 🥺❤️</h1>
 
-        <p>Ahora empieza algo bonito...</p>
+        <p>💖Por que tu siempre has sido la mejor parte de mi vida💖</p>
 
         <img src="perrito.png" alt="" class="finalImage">
 
@@ -437,7 +437,7 @@ body {
         <div class="messageBox">
             <div class="messageHeart">❤️</div>
             <h2 id="endTitle">❤️TE AMO TARSIS❤️</h2>
-            <p id="endText">Amor, hoy quiero darte las gracias por seguir conmigo, por cada momento que hemos compartido, por cada sonrisa, cada abrazo, cada palabra y por simplemente estar a mi lado. Puede que a veces no encuentre las palabras exactas para explicarte todo lo que siento, pero quiero que sepas que te amo más de lo que cualquier palabra podría explicar.
+            <p id="endText">Amor, hoy quiero darte las gracias por seguir conmigo, por cada momento que hemos compartido, por cada sonrisa, cada abrazo, cada palabra y por simplemente estar a mi lado. Puede que a veces no encuentre las palabras exactas para explicarte todo lo que siento y puede que aveces llegue a ser muy intenso y molesto 😭😢, pero quiero que sepas que te amo más de lo que cualquier palabra podría explicar.
 
 Si pudiera elegir entre millones de personas, en cualquier lugar y en cualquier momento, volvería a elegirte a ti. Y si estuviera perdido entre millones de estrellas, no importaría cuánto tuviera que buscar… porque entre todas ellas, siempre te buscaría a ti. ⭐❤️
 
@@ -466,7 +466,7 @@ Te amo más que a nada en este mundo. ❤️.</p>
     <!-- 🎵 MÚSICA -->
     <audio id="music1" src="golden-hour.mp3" preload="auto" loop></audio>
     <audio id="music2" src="until-i-found-you.mp3" preload="auto" loop></audio>
-    <audio id="music3" src="golden-hour.mp3" preload="auto"></audio>
+    <audio id="music3" src="golden-hour-drop.mp3" preload="auto"></audio>
 
     <button id="muteButton" aria-label="Silenciar">🔊</button>
 
@@ -583,7 +583,21 @@ let lastRumble = 0;
 let lastFrameTime = performance.now();
 let frameDt = 16.67;   // milisegundos que pasaron desde el frame anterior
 
-const PARTICLE_COUNT = window.innerWidth < 700 ? 1500 : 2500;
+const IS_MOBILE = window.innerWidth < 700;
+const PARTICLE_COUNT = IS_MOBILE ? 1000 : 2500;
+
+// 🚀 Calidad automática: si el dispositivo va lento, dibuja menos partículas (un poco más grandes)
+let quality = 1;            // 1 = todas las partículas, 0.5 = la mitad (mínimo)
+let qualityFrames = 0;
+let qualityTime = 0;
+
+// 🎨 16 tonos rosados en vez de uno distinto por partícula
+// (así el navegador cambia de color pocas veces por cuadro y va mucho más rápido)
+const PALETTE = Array.from({ length: 16 }, (_, i) => {
+    const g = Math.floor(40 + ((i * 7) % 16) / 15 * 180);
+    const b = Math.floor(80 + ((i * 11 + 3) % 16) / 15 * 170);
+    return `rgb(255,${g},${b})`;
+});
 const EXPLOSION_FADE_FRAMES = 260;
 const SHAKE_TOTAL = 45;
 
@@ -613,23 +627,20 @@ function vibrate(pattern) {
 // 🎵 MÚSICA
 // ==========================================
 
-const music1 = document.getElementById("music1");   // Golden Hour (parte tranquila)
+const music1 = document.getElementById("music1");   // Golden Hour (parte tranquila, con bucle suave incluido)
 const music2 = document.getElementById("music2");   // Until I Found You (mensaje final)
-const music3 = document.getElementById("music3");   // Golden Hour (copia que salta directo a la subida)
+const music3 = document.getElementById("music3");   // Golden Hour (subida: el golpe cae a los 3.3 s del archivo)
 const muteButton = document.getElementById("muteButton");
 
 // 🎯 SINCRONIZACIÓN CON LA EXPLOSIÓN
-// La sobrecarga dura siempre OVERLOAD_MS. Al empezar, la música salta al punto
-// de Golden Hour que queda justo DROP_TIME - 3.3 s antes de la subida,
-// así la subida cae exactamente cuando explota el corazón.
-const DROP_TIME = 32.0;     // segundo de golden-hour.mp3 donde cae la subida fuerte (versión recortada de 44 s)
-const SYNC_OFFSET = 0;      // ajuste fino en segundos:
-                            //   si la subida suena DESPUÉS de la explosión → pon 0.1, 0.2...
-                            //   si suena ANTES de la explosión → pon -0.1, -0.2...
-const DROP_START = Math.max(0, DROP_TIME - OVERLOAD_MS / 1000 + SYNC_OFFSET);
-const FADE_END = 0.85;      // % de carga (0 a 1) en el que la música queda en silencio total
-const LOOP_START = 12;      // si te tardas mucho, la canción regresa a este segundo...
-const LOOP_END = DROP_START - 1;   // ...al llegar aquí (un poco antes de la subida), para que no suene sola
+// golden-hour-drop.mp3 está cortado para que su golpe fuerte caiga a los 3.3 s
+// (lo que dura la sobrecarga). Al empezar la sobrecarga se reproduce desde el
+// principio, así el golpe cae justo cuando explota el corazón. Sin saltos ni cortes.
+const SYNC_OFFSET = 0.06;   // ajuste fino en segundos (la subida del archivo está ~0.06 s después de lo ideal):
+                            //   si la subida suena DESPUÉS de la explosión → súbelo (0.1, 0.15...)
+                            //   si suena ANTES de la explosión → bájalo (0, -0.05, -0.1...)
+const FADE_END = 0.85;      // % de carga (0 a 1) en el que la música llega a su volumen más bajo
+const FLOOR_VOL = 0.05;     // volumen más bajo durante la carga (0 = silencio total)
 
 let audioCtx = null;
 let gain1 = null;
@@ -638,7 +649,6 @@ let gain3 = null;
 let musicOn = false;
 let music2Started = false;
 let overloadStarted = false;
-let dropPrepared = false;
 let muted = false;
 let vol1 = 0;
 let vol2 = 0;
@@ -698,21 +708,21 @@ function updateMusic() {
         return;
     }
 
-    // Deja lista la copia en el punto exacto de la subida (sin que suene todavía)
-    if (!dropPrepared && heartFormation >= 1 && music3.readyState >= 1) {
-        music3.currentTime = DROP_START;
-        dropPrepared = true;
-    }
-
-    // ⚠️ Empieza la sobrecarga: entra la copia que ya está en su lugar
+    // ⚠️ Empieza la sobrecarga: entra la subida desde su primer segundo
     if (musicOn && universeExplosion && !overloadStarted) {
         overloadStarted = true;
 
-        if (!dropPrepared) {
-            music3.currentTime = DROP_START;
+        if (SYNC_OFFSET >= 0) {
+            music3.currentTime = SYNC_OFFSET;
+            music3.play().catch(() => {});
+        } else {
+            music3.currentTime = 0;
+            setTimeout(() => {
+                if (musicOn && overloadStarted) {
+                    music3.play().catch(() => {});
+                }
+            }, -SYNC_OFFSET * 1000);
         }
-
-        music3.play().catch(() => {});
     }
 
     let t1 = 0;
@@ -728,40 +738,28 @@ function updateMusic() {
             rate = 0.015;
 
         } else if (overloadStarted) {
-            // Sobrecarga + explosión: arranca bajito (saliendo del silencio)
-            // y va subiendo hasta que cae la subida de la canción
-            t3 = 0.2 + clamp01(compression) * 0.8;
-            rate = 0.2;
+            // Sobrecarga: la música crece poco a poco (sin entrar de golpe)
+            // y al explotar el golpe de la canción suena a todo volumen
+            if (explosionActive) {
+                t3 = 1;
+                rate = 0.35;
+            } else {
+                const k = clamp01(compression / 0.8);
+                t3 = 0.92 * k * k * (3 - 2 * k);
+                rate = 0.2;
+            }
 
         } else if (heartFormation >= 1) {
-            // Mientras cargas el corazón el volumen va BAJANDO hasta quedar en
-            // silencio (al ~85 %). Ahí, sin que se note, la música salta a la
-            // parte de la subida y vuelve a crecer con la sobrecarga.
-            // Si sueltas, el volumen vuelve a subir.
+            // Mientras cargas el corazón el volumen va bajando suavemente
+            // (la música "contiene el aliento"). Si sueltas, vuelve a subir.
             const quiet = clamp01(explosionPower / FADE_END);
-            t1 = 0.4 * Math.pow(1 - quiet, 1.5);
+            t1 = FLOOR_VOL + (0.4 - FLOOR_VOL) * Math.pow(1 - quiet, 1.5);
             rate = 0.12;
 
         } else {
             // Entrada suave
             t1 = 0.35;
             rate = 0.015;
-        }
-    }
-
-    // 🛟 Seguro: si te tardas en cargar, la canción no llega sola a la subida.
-    // Baja el volumen un instante y regresa a un punto tranquilo.
-    if (musicOn && !overloadStarted && !explosionEnded) {
-
-        const pos = music1.currentTime;
-
-        if (pos > LOOP_END - 0.5) {
-            t1 = 0;
-            rate = 0.2;
-        }
-
-        if (pos >= LOOP_END) {
-            music1.currentTime = LOOP_START;
         }
     }
 
@@ -898,8 +896,7 @@ function createHeartParticles() {
         // 30% en el contorno, 70% rellenando el interior (corazón sólido)
         const k = Math.random() < 0.3 ? 1 : Math.sqrt(Math.random());
 
-        const green = Math.floor(40 + Math.random() * 180);
-        const blue = Math.floor(80 + Math.random() * 170);
+        const colorIdx = Math.floor(Math.random() * PALETTE.length);
 
         heartParticles.push({
             x: Math.random() * canvas.width,
@@ -916,11 +913,15 @@ function createHeartParticles() {
             phaseY: Math.random() * Math.PI * 2,
             movementSpeed: Math.random() * 0.002 + 0.001,
             movementAmount: Math.random() * 2 + 0.5,
-            color: `rgb(255,${green},${blue})`,
+            colorIdx: colorIdx,
+            color: PALETTE[colorIdx],
             explosionVX: 0,
             explosionVY: 0
         });
     }
+
+    // Agrupadas por color (el orden no cambia cómo se ve el corazón)
+    heartParticles.sort((a, b) => a.colorIdx - b.colorIdx);
 
     updateHeartTargets();
 }
@@ -1010,8 +1011,8 @@ function drawHeartEnergy() {
         centerX, centerY, radius
     );
 
-    gradient.addColorStop(0, "rgba(255,0,80,0.15)");
-    gradient.addColorStop(0.7, "rgba(255,0,80,0.05)");
+    gradient.addColorStop(0, "rgba(255,0,80,0.24)");
+    gradient.addColorStop(0.7, "rgba(255,0,80,0.09)");
     gradient.addColorStop(1, "rgba(255,0,80,0)");
 
     ctx.fillStyle = gradient;
@@ -1032,13 +1033,13 @@ function createEnergyWave() {
 
 
 // Traza el contorno de un corazón (misma fórmula que las partículas)
-function drawHeartShape(cx, cy, scale) {
+function drawHeartShape(cx, cy, scale, steps = 100) {
 
     ctx.beginPath();
 
-    for (let i = 0; i <= 100; i++) {
+    for (let i = 0; i <= steps; i++) {
 
-        const t = (i / 100) * Math.PI * 2;
+        const t = (i / steps) * Math.PI * 2;
 
         const x = 16 * Math.pow(Math.sin(t), 3);
 
@@ -1176,7 +1177,16 @@ function animateHeart() {
         ? 1 + compression * 4
         : 0;
 
-    for (const p of heartParticles) {
+    const keep = Math.floor(quality * 100);
+
+    for (let i = 0; i < heartParticles.length; i++) {
+
+        // Con calidad baja se saltan algunas partículas (repartidas parejo)
+        if ((i % 100) >= keep) {
+            continue;
+        }
+
+        const p = heartParticles[i];
 
         // 💥 Explosión
         if (explosionActive) {
@@ -1314,8 +1324,9 @@ function drawShockwaves() {
 
     ctx.globalCompositeOperation = "lighter";
     ctx.shadowColor = "rgba(255,60,110,1)";
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = IS_MOBILE ? 10 : 25;
     ctx.strokeStyle = "rgb(255,90,130)";
+    ctx.lineJoin = "round";   // las puntas del corazón se ven suaves, sin picos
 
     for (let i = shockwaves.length - 1; i >= 0; i--) {
 
@@ -1337,8 +1348,8 @@ function drawShockwaves() {
         ctx.globalAlpha = w.alpha;
         ctx.lineWidth = 2 + 8 * w.alpha;
 
-        ctx.beginPath();
-        ctx.arc(canvas.width / 2, canvas.height / 2, w.r, 0, Math.PI * 2);
+        // El corazón mide de ancho lo mismo que medía el círculo (w.r = mitad del ancho; la fórmula llega a 16)
+        drawHeartShape(canvas.width / 2, canvas.height / 2, w.r / 16, 240);
         ctx.stroke();
     }
 
@@ -1551,7 +1562,6 @@ function resetExperience() {
     musicOn = false;
     music2Started = false;
     overloadStarted = false;
-    dropPrepared = false;
 
     energyWaves = [];
     shockwaves = [];
@@ -1611,10 +1621,20 @@ function drawHeartParticles() {
 
     ctx.save();
 
-    ctx.shadowColor = "rgba(255,50,100,0.8)";
-    ctx.shadowBlur = 4 + explosionPower * 8;
+    // OJO: aquí antes había shadowBlur (resplandor por partícula). Era lo que más
+    // trabajo le daba al celular. El brillo ahora lo da el halo del corazón.
 
-    for (const p of heartParticles) {
+    const keep = Math.floor(quality * 100);
+    const sizeBoost = 1 + (1 - quality) * 0.8;   // si hay menos partículas, un poco más grandes
+    let lastColor = null;
+
+    for (let i = 0; i < heartParticles.length; i++) {
+
+        if ((i % 100) >= keep) {
+            continue;
+        }
+
+        const p = heartParticles[i];
 
         // Invisibles al inicio; se hacen visibles al ir formando el corazón
         const alpha = p.opacity * p.formationProgress * fade;
@@ -1625,11 +1645,14 @@ function drawHeartParticles() {
 
         ctx.globalAlpha = alpha;
 
-        ctx.fillStyle = p.color;
+        if (p.color !== lastColor) {
+            ctx.fillStyle = p.color;
+            lastColor = p.color;
+        }
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
+        const r = p.size * sizeBoost;
+
+        ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
     }
 
     ctx.restore();
@@ -1681,6 +1704,23 @@ function animate() {
     frameDt = Math.min(100, nowT - lastFrameTime);
     lastFrameTime = nowT;
 
+    // 🚀 Calidad automática: si va lento mientras se forma/carga el corazón, baja partículas
+    if (heartStarted && !explosionActive && quality > 0.5) {
+
+        qualityFrames++;
+        qualityTime += frameDt;
+
+        if (qualityFrames >= 45) {
+
+            if (qualityTime / qualityFrames > 26) {     // menos de ~38 cuadros por segundo
+                quality = Math.max(0.5, quality - 0.15);
+            }
+
+            qualityFrames = 0;
+            qualityTime = 0;
+        }
+    }
+
     // Durante la explosión el fondo se borra a medias → estelas
     const trails =
         explosionActive && explosionAge < EXPLOSION_FADE_FRAMES + 40;
@@ -1704,11 +1744,14 @@ function animate() {
     }
 
     // ⭐ ESTRELLAS
+    const tStar = Date.now();
+    ctx.fillStyle = "white";
+
     for (const star of stars) {
 
         // 🌠 Caída suave con leve vaivén lateral
         star.y += star.fall;
-        star.x += Math.sin(Date.now() * 0.0003 + star.phase) * 0.05;
+        star.x += Math.sin(tStar * 0.0003 + star.phase) * 0.05;
 
         if (star.y > canvas.height + 2) {
             star.y = -2;
@@ -1722,12 +1765,11 @@ function animate() {
             star.opacity = clamp01(star.opacity);
         }
 
-        ctx.fillStyle = `rgba(255,255,255,${star.opacity})`;
-
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.globalAlpha = star.opacity;
+        ctx.fillRect(star.x - star.size, star.y - star.size, star.size * 2, star.size * 2);
     }
+
+    ctx.globalAlpha = 1;
 
     // ☄️ ESTRELLAS FUGACES
     for (let i = shootingStars.length - 1; i >= 0; i--) {
