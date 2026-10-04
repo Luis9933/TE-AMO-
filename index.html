@@ -240,7 +240,7 @@ body {
     max-height: 38vh;
     object-fit: contain;
     margin-top: 25px;
-    filter: drop-shadow(0 0 18px rgba(132, 232, 250, 0.35));
+    filter: drop-shadow(0 0 18px rgba(255, 80, 120, 0.35));
 }
 
 
@@ -658,6 +658,25 @@ let vol3 = 0;
 // en ese caso usamos el volumen normal de los <audio> (funciona igual en la compu)
 let fileMode = false;
 
+// ▶️ Reproduce un audio; si el celular lo bloquea, reintenta en el siguiente toque
+function safePlay(el, stillWanted) {
+
+    const pr = el.play();
+
+    if (pr && pr.catch) {
+        pr.catch(() => {
+            const retry = () => {
+                if (musicOn && stillWanted()) {
+                    el.play().catch(() => {});
+                }
+            };
+
+            window.addEventListener("pointerup", retry, { once: true });
+            window.addEventListener("touchend", retry, { once: true });
+        });
+    }
+}
+
 function startMusic() {
 
     musicOn = true;
@@ -698,6 +717,25 @@ function startMusic() {
     music1.currentTime = 0;
     music1.play().catch(() => {});
 
+    // 📱 En el celular, cada audio necesita "activarse" con un toque tuyo.
+    // Aprovechamos el toque en SÍ: las otras dos pistas suenan un instante en silencio
+    // y se pausan, así después pueden entrar solas (la subida y la segunda canción).
+    for (const el of [music2, music3]) {
+
+        if (fileMode) {
+            el.volume = 0;
+        }
+
+        const pr = el.play();
+
+        if (pr && pr.then) {
+            pr.then(() => {
+                el.pause();
+                el.currentTime = 0;
+            }).catch(() => {});
+        }
+    }
+
     muteButton.classList.add("visible");
 }
 
@@ -714,12 +752,12 @@ function updateMusic() {
 
         if (SYNC_OFFSET >= 0) {
             music3.currentTime = SYNC_OFFSET;
-            music3.play().catch(() => {});
+            safePlay(music3, () => overloadStarted && !explosionEnded);
         } else {
             music3.currentTime = 0;
             setTimeout(() => {
                 if (musicOn && overloadStarted) {
-                    music3.play().catch(() => {});
+                    safePlay(music3, () => overloadStarted && !explosionEnded);
                 }
             }, -SYNC_OFFSET * 1000);
         }
@@ -783,7 +821,7 @@ function updateMusic() {
     if (explosionEnded && musicOn && !music2Started) {
         music2Started = true;
         music2.currentTime = 0;
-        music2.play().catch(() => {});
+        safePlay(music2, () => explosionEnded);
     }
 
     // Pausa lo que ya se desvaneció del todo
