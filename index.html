@@ -240,7 +240,7 @@ body {
     max-height: 38vh;
     object-fit: contain;
     margin-top: 25px;
-    filter: drop-shadow(0 0 18px rgba(255, 80, 120, 0.35));
+    filter: drop-shadow(0 0 18px rgba(111, 192, 247, 0.35));
 }
 
 
@@ -463,10 +463,10 @@ Te amo más que a nada en este mundo. ❤️.</p>
         </div>
     </div>
 
-    <!-- 🎵 MÚSICA -->
-    <audio id="music1" src="golden-hour.mp3" preload="auto" loop></audio>
-    <audio id="music2" src="until-i-found-you.mp3" preload="auto" loop></audio>
-    <audio id="music3" src="golden-hour-drop.mp3" preload="auto"></audio>
+    <!-- 🎵 MÚSICA (estos <audio> solo son un respaldo; el sonido normal va por Web Audio, ver el script) -->
+    <audio id="music1" src="golden-hour.mp3" preload="none" loop></audio>
+    <audio id="music2" src="until-i-found-you.mp3" preload="none" loop></audio>
+    <audio id="music3" src="golden-hour-drop.mp3" preload="none"></audio>
 
     <button id="muteButton" aria-label="Silenciar">🔊</button>
 
@@ -626,146 +626,357 @@ function vibrate(pattern) {
 // ==========================================
 // 🎵 MÚSICA
 // ==========================================
+//
+// Cómo suena ahora (pensado para celular):
+// Los 3 audios se descargan al abrir la página y se reproducen con Web Audio
+// (como "buffers" en memoria). Así, después del toque en SÍ, el celular deja
+// que cualquiera de ellos entre solo cuando toca (la subida, la 2ª canción...).
+// Antes cada <audio> pedía su propio permiso y en el celular algunos se quedaban mudos.
+// Los <audio> del HTML solo se usan de respaldo (por ejemplo al abrir con doble clic).
+//
+// Para ver un aviso rojo si algo falla al cargar, abre la página con  ?debug  al final
+// de la dirección (por ejemplo  https://tusitio.com/?debug ).
 
-const music1 = document.getElementById("music1");   // Golden Hour (parte tranquila, con bucle suave incluido)
-const music2 = document.getElementById("music2");   // Until I Found You (mensaje final)
-const music3 = document.getElementById("music3");   // Golden Hour (subida: el golpe cae a los 3.3 s del archivo)
 const muteButton = document.getElementById("muteButton");
+
+const DEBUG = /[?&]debug/.test(location.search);
+
+function audioProblem(msg) {
+    console.error(msg);
+
+    if (DEBUG) {
+        showDebug(msg);
+    }
+}
 
 // 🎯 SINCRONIZACIÓN CON LA EXPLOSIÓN
 // golden-hour-drop.mp3 está cortado para que su golpe fuerte caiga a los 3.3 s
 // (lo que dura la sobrecarga). Al empezar la sobrecarga se reproduce desde el
-// principio, así el golpe cae justo cuando explota el corazón. Sin saltos ni cortes.
-const SYNC_OFFSET = 0.06;   // ajuste fino en segundos (la subida del archivo está ~0.06 s después de lo ideal):
+// principio, así el golpe cae justo cuando explota el corazón.
+const SYNC_OFFSET = 0.06;   // ajuste fino en segundos (el golpe del archivo está ~0.06 s después de lo ideal):
                             //   si la subida suena DESPUÉS de la explosión → súbelo (0.1, 0.15...)
                             //   si suena ANTES de la explosión → bájalo (0, -0.05, -0.1...)
 const FADE_END = 0.85;      // % de carga (0 a 1) en el que la música llega a su volumen más bajo
 const FLOOR_VOL = 0.05;     // volumen más bajo durante la carga (0 = silencio total)
 
+const tracks = {
+
+    // Golden Hour, parte tranquila (28 s). El bucle ya viene "cosido" dentro del archivo:
+    // al llegar al segundo 28 vuelve al 12.76 sin que se note el corte.
+    bed: {
+        url: "golden-hour.mp3",
+        el: document.getElementById("music1"),
+        loop: true, loopStart: 12.76, loopEnd: 28.0
+    },
+
+    // Golden Hour, la subida (el golpe cae a los 3.3 s del archivo)
+    drop: {
+        url: "golden-hour-drop.mp3",
+        el: document.getElementById("music3"),
+        loop: false
+    },
+
+    // Until I Found You (mensaje final)
+    song2: {
+        url: "until-i-found-you.mp3",
+        el: document.getElementById("music2"),
+        loop: true
+    }
+};
+
+for (const t of Object.values(tracks)) {
+    t.buffer = null;      // audio ya descargado y decodificado
+    t.gain = null;        // control de volumen
+    t.source = null;      // reproductor activo
+    t.ready = false;
+    t.useEl = false;      // true = usar el <audio> de respaldo
+    t.playing = false;
+    t.pending = null;     // si piden reproducirlo antes de que termine de descargarse
+    t.vol = 0;
+    t.target = 0;
+    t.startedAt = 0;
+}
+
 let audioCtx = null;
-let gain1 = null;
-let gain2 = null;
-let gain3 = null;
 let musicOn = false;
 let music2Started = false;
 let overloadStarted = false;
 let muted = false;
-let vol1 = 0;
-let vol2 = 0;
-let vol3 = 0;
 
-// Si la página se abre con doble clic (file://) Chrome bloquea Web Audio:
-// en ese caso usamos el volumen normal de los <audio> (funciona igual en la compu)
-let fileMode = false;
 
-// ▶️ Reproduce un audio; si el celular lo bloquea, reintenta en el siguiente toque
-function safePlay(el, stillWanted) {
+// 🔌 Prepara Web Audio y empieza a descargar los audios
+function initAudio() {
 
-    const pr = el.play();
+    const AC = window.AudioContext || window.webkitAudioContext;
 
-    if (pr && pr.catch) {
-        pr.catch(() => {
-            const retry = () => {
-                if (musicOn && stillWanted()) {
-                    el.play().catch(() => {});
-                }
-            };
+    // Al abrir con doble clic (file://) el navegador no deja descargar los audios: se usa el respaldo
+    if (location.protocol === "file:" || !AC || !window.fetch) {
+        for (const t of Object.values(tracks)) {
+            t.useEl = true;
+        }
+        return;
+    }
 
-            window.addEventListener("pointerup", retry, { once: true });
-            window.addEventListener("touchend", retry, { once: true });
-        });
+    try {
+        audioCtx = new AC();
+    } catch (e) {
+        audioProblem("Audio: " + e.message);
+        for (const t of Object.values(tracks)) {
+            t.useEl = true;
+        }
+        return;
+    }
+
+    for (const t of Object.values(tracks)) {
+        t.gain = audioCtx.createGain();
+        t.gain.gain.value = 0;
+        t.gain.connect(audioCtx.destination);
+    }
+
+    loadTracks();
+}
+
+// Descarga y decodifica en orden de prioridad (primero la que se necesita antes)
+async function loadTracks() {
+
+    for (const key of ["bed", "drop", "song2"]) {
+
+        const t = tracks[key];
+
+        try {
+            const res = await fetch(t.url);
+
+            if (!res.ok) {
+                throw new Error("No se encontró " + t.url + " (código " + res.status + ")");
+            }
+
+            const data = await res.arrayBuffer();
+
+            // (con callbacks, porque Safari viejo no usa promesas aquí)
+            t.buffer = await new Promise((ok, fail) => audioCtx.decodeAudioData(data, ok, fail));
+            t.ready = true;
+
+            if (t.pending) {
+                const p = t.pending;
+                t.pending = null;
+                startLate(t, p);
+            }
+
+        } catch (e) {
+            audioProblem("Audio (" + t.url + "): " + (e && e.message ? e.message : e));
+
+            // Respaldo: usar el <audio> normal
+            t.useEl = true;
+
+            if (t.pending) {
+                const p = t.pending;
+                t.pending = null;
+                elPlay(t, p.offset, p.delay);
+            }
+        }
     }
 }
 
+// Retraso que tarda el celular en sacar el sonido (se compensa para que cuadre con la imagen)
+function outLatency() {
+    if (!audioCtx) {
+        return 0;
+    }
+    return Math.min(0.3, audioCtx.outputLatency || audioCtx.baseLatency || 0);
+}
+
+
+// ▶️ Reproducir / detener una pista (key = "bed", "drop" o "song2")
+function trackPlay(key, offset, delay) {
+
+    const t = tracks[key];
+
+    offset = offset || 0;
+    delay = delay || 0;
+
+    if (t.useEl) {
+        elPlay(t, offset, delay);
+        return;
+    }
+
+    if (!t.ready) {
+        // Todavía se está descargando: arranca en cuanto esté lista, ya "puesta al día"
+        t.pending = { offset: offset, delay: delay, at: performance.now() };
+        return;
+    }
+
+    startSource(t, offset, delay);
+}
+
+function startLate(t, p) {
+
+    const late = (performance.now() - p.at) / 1000;
+
+    startSource(
+        t,
+        p.offset + Math.max(0, late - p.delay),
+        Math.max(0, p.delay - late)
+    );
+}
+
+function startSource(t, offset, delay) {
+
+    stopSource(t);
+
+    const src = audioCtx.createBufferSource();
+
+    src.buffer = t.buffer;
+
+    if (t.loop) {
+        src.loop = true;
+
+        if (t.loopEnd) {
+            src.loopStart = t.loopStart;
+            src.loopEnd = t.loopEnd;
+        }
+    }
+
+    src.connect(t.gain);
+    src.start(audioCtx.currentTime + delay, offset);
+
+    src.onended = () => {
+        if (t.source === src) {
+            t.source = null;
+            t.playing = false;
+        }
+    };
+
+    t.source = src;
+    t.playing = true;
+    t.startedAt = performance.now() + delay * 1000;
+}
+
+function stopSource(t) {
+
+    if (t.source) {
+        t.source.onended = null;
+
+        try { t.source.stop(); } catch (e) { /* ya estaba detenido */ }
+        try { t.source.disconnect(); } catch (e) { /* nada */ }
+
+        t.source = null;
+    }
+
+    t.playing = false;
+}
+
+function trackStop(key) {
+
+    const t = tracks[key];
+
+    t.pending = null;
+
+    if (t.useEl) {
+        t.el.pause();
+        t.playing = false;
+    } else {
+        stopSource(t);
+    }
+}
+
+// Respaldo con el <audio> normal
+function elPlay(t, offset, delay) {
+
+    const go = () => {
+
+        t.el.volume = clamp01(t.vol * (muted ? 0 : 1));
+
+        try { t.el.currentTime = offset; } catch (e) { /* nada */ }
+
+        const pr = t.el.play();
+
+        if (pr && pr.catch) {
+            pr.catch(() => {});
+        }
+
+        t.playing = true;
+        t.startedAt = performance.now();
+    };
+
+    if (delay > 0) {
+        setTimeout(go, delay * 1000);
+    } else {
+        go();
+    }
+}
+
+
+// 🎬 Se llama con el toque en SÍ (aquí el celular "desbloquea" el audio)
 function startMusic() {
 
     musicOn = true;
     music2Started = false;
 
-    fileMode = (location.protocol === "file:");
-
+    // iPhone: que suene aunque el switch lateral esté en silencio (iOS 17+)
     try {
-        if (!audioCtx && !fileMode) {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            audioCtx = new AC();
-
-            gain1 = audioCtx.createGain();
-            gain2 = audioCtx.createGain();
-            gain3 = audioCtx.createGain();
-            gain1.gain.value = 0;
-            gain2.gain.value = 0;
-            gain3.gain.value = 0;
-
-            audioCtx.createMediaElementSource(music1).connect(gain1);
-            audioCtx.createMediaElementSource(music2).connect(gain2);
-            audioCtx.createMediaElementSource(music3).connect(gain3);
-
-            gain1.connect(audioCtx.destination);
-            gain2.connect(audioCtx.destination);
-            gain3.connect(audioCtx.destination);
+        if (navigator.audioSession) {
+            navigator.audioSession.type = "playback";
         }
+    } catch (e) { /* nada */ }
 
-        if (audioCtx) {
-            audioCtx.resume();
-        }
+    if (audioCtx) {
 
-    } catch (e) {
-        console.error("Audio:", e);
-        fileMode = true;
+        audioCtx.resume().catch(() => {});
+
+        // Desbloqueo: un sonido vacío de una muestra, dentro del toque del usuario
+        try {
+            const s = audioCtx.createBufferSource();
+            s.buffer = audioCtx.createBuffer(1, 1, 22050);
+            s.connect(audioCtx.destination);
+            s.start(0);
+        } catch (e) { /* nada */ }
     }
 
-    music1.currentTime = 0;
-    music1.play().catch(() => {});
+    trackPlay("bed", 0, 0);
 
-    // 📱 En el celular, cada audio necesita "activarse" con un toque tuyo.
-    // Aprovechamos el toque en SÍ: las otras dos pistas suenan un instante en silencio
-    // y se pausan, así después pueden entrar solas (la subida y la segunda canción).
-    for (const el of [music2, music3]) {
+    // Respaldo: si alguna pista usa <audio>, se activa ahora con este toque
+    for (const key of ["drop", "song2"]) {
 
-        if (fileMode) {
-            el.volume = 0;
-        }
+        const t = tracks[key];
 
-        const pr = el.play();
+        if (t.useEl) {
+            t.el.volume = 0;
 
-        if (pr && pr.then) {
-            pr.then(() => {
-                el.pause();
-                el.currentTime = 0;
-            }).catch(() => {});
+            const pr = t.el.play();
+
+            if (pr && pr.then) {
+                pr.then(() => {
+                    t.el.pause();
+                    t.el.currentTime = 0;
+                }).catch(() => {});
+            }
         }
     }
 
     muteButton.classList.add("visible");
 }
 
-// Sube/baja el volumen según lo que pasa en la animación
-function updateMusic() {
 
-    if (!gain1 && !fileMode) {
-        return;
-    }
+// 🎚️ Sube/baja el volumen según lo que pasa en la animación
+function updateMusic() {
 
     // ⚠️ Empieza la sobrecarga: entra la subida desde su primer segundo
     if (musicOn && universeExplosion && !overloadStarted) {
+
         overloadStarted = true;
 
-        if (SYNC_OFFSET >= 0) {
-            music3.currentTime = SYNC_OFFSET;
-            safePlay(music3, () => overloadStarted && !explosionEnded);
+        const off = SYNC_OFFSET + outLatency();
+
+        if (off >= 0) {
+            trackPlay("drop", off, 0);
         } else {
-            music3.currentTime = 0;
-            setTimeout(() => {
-                if (musicOn && overloadStarted) {
-                    safePlay(music3, () => overloadStarted && !explosionEnded);
-                }
-            }, -SYNC_OFFSET * 1000);
+            trackPlay("drop", 0, -off);
         }
     }
 
-    let t1 = 0;
-    let t2 = 0;
-    let t3 = 0;
+    let t1 = 0;   // base tranquila
+    let t2 = 0;   // segunda canción
+    let t3 = 0;   // subida
     let rate = 0.03;
 
     if (musicOn) {
@@ -801,42 +1012,45 @@ function updateMusic() {
         }
     }
 
-    vol1 += (t1 - vol1) * rate;
-    vol2 += (t2 - vol2) * rate;
-    vol3 += (t3 - vol3) * rate;
-
-    const m = muted ? 0 : 1;
-
-    if (gain1 && !fileMode) {
-        gain1.gain.value = vol1 * m;
-        gain2.gain.value = vol2 * m;
-        gain3.gain.value = vol3 * m;
-    } else {
-        music1.volume = clamp01(vol1 * m);
-        music2.volume = clamp01(vol2 * m);
-        music3.volume = clamp01(vol3 * m);
-    }
+    tracks.bed.target = t1;
+    tracks.song2.target = t2;
+    tracks.drop.target = t3;
 
     // Entra la segunda canción al aparecer el mensaje
     if (explosionEnded && musicOn && !music2Started) {
         music2Started = true;
-        music2.currentTime = 0;
-        safePlay(music2, () => explosionEnded);
+        trackPlay("song2", 0, 0);
     }
 
-    // Pausa lo que ya se desvaneció del todo
-    if (t1 === 0 && vol1 < 0.01 && !music1.paused) {
-        music1.pause();
+    const m = muted ? 0 : 1;
+    const now = performance.now();
+
+    for (const key in tracks) {
+
+        const t = tracks[key];
+
+        t.vol += (t.target - t.vol) * rate;
+
+        if (t.useEl) {
+            t.el.volume = clamp01(t.vol * m);
+        } else if (t.gain) {
+            t.gain.gain.value = t.vol * m;
+        }
+
+        // Detiene lo que ya se desvaneció del todo
+        if (t.playing && t.target === 0 && t.vol < 0.01 && now - t.startedAt > 500) {
+            trackStop(key);
+        }
     }
 
-    if (t2 === 0 && vol2 < 0.01 && !music2.paused) {
-        music2.pause();
-    }
+    // Respaldo (<audio>): el bucle de la base lo hacemos a mano
+    const bed = tracks.bed;
 
-    if (t3 === 0 && vol3 < 0.01 && !music3.paused) {
-        music3.pause();
+    if (bed.useEl && bed.playing && bed.el.currentTime >= bed.loopEnd) {
+        bed.el.currentTime = bed.loopStart;
     }
 }
+
 
 // 🔇 Botón de silencio (sin activar el "mantener presionado")
 muteButton.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -854,24 +1068,42 @@ document.addEventListener("visibilitychange", () => {
     }
 
     if (document.hidden) {
-        music1.pause();
-        music2.pause();
-        music3.pause();
+
+        if (audioCtx) {
+            audioCtx.suspend().catch(() => {});
+        }
+
+        for (const t of Object.values(tracks)) {
+            if (t.useEl) {
+                t.el.pause();
+            }
+        }
+
     } else {
 
         if (audioCtx) {
-            audioCtx.resume();
+            audioCtx.resume().catch(() => {});
         }
 
-        if (explosionEnded) {
-            music2.play().catch(() => {});
-        } else if (overloadStarted) {
-            music3.play().catch(() => {});
-        } else {
-            music1.play().catch(() => {});
+        for (const t of Object.values(tracks)) {
+            if (t.useEl && t.playing) {
+                t.el.play().catch(() => {});
+            }
         }
     }
 });
+
+// 📱 Si el celular "durmió" el audio (llamada, otra app...), el siguiente toque lo despierta
+function wakeAudio() {
+    if (audioCtx && audioCtx.state !== "running") {
+        audioCtx.resume().catch(() => {});
+    }
+}
+
+window.addEventListener("pointerdown", wakeAudio);
+window.addEventListener("touchend", wakeAudio);
+
+initAudio();
 
 
 // ==========================================
